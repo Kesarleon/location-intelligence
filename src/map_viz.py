@@ -7,15 +7,15 @@ def create_map(data_path="data/locations.csv", output_path="map.html"):
     # Mapa centrado en CDMX
     m = folium.Map(location=[19.4326, -99.1332], zoom_start=12, tiles="CartoDB positron")
 
-    # Clientes
-    for _, row in df[df["type"]=="client"].iterrows():
+    # Demanda
+    for _, row in df[df["type"]=="demand"].iterrows():
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
             radius=5,
             color="blue",
             fill=True,
             fill_opacity=0.7,
-            popup=f"Cliente {row['id']}"
+            popup=f"Demanda {row['id']}"
         ).add_to(m)
 
     # Competencia
@@ -24,6 +24,14 @@ def create_map(data_path="data/locations.csv", output_path="map.html"):
             location=[row["lat"], row["lon"]],
             popup=f"Competidor {row['id']}",
             icon=folium.Icon(color="red", icon="briefcase")
+        ).add_to(m)
+
+    # Candidatos
+    for _, row in df[df["type"]=="candidate"].iterrows():
+        folium.Marker(
+            location=[row["lat"], row["lon"]],
+            popup=f"Candidato {row['id']} (Att: {row['attractiveness']})",
+            icon=folium.Icon(color="green", icon="star")
         ).add_to(m)
 
     # Guardar
