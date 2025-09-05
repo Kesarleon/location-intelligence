@@ -1,9 +1,23 @@
+from typing import Tuple
+
 import folium
 import pandas as pd
-from utils import bbox_from_points, COLORS
+from utils import COLORS
 
-def plot_buffers(csv_path="data/locations.csv", output="buffers.html",
-                 radii_m=(300, 500, 800)):
+
+def plot_buffers(
+    csv_path: str = "data/locations.csv",
+    output: str = "buffers.html",
+    radii_m: Tuple[int, int, int] = (300, 500, 800),
+) -> None:
+    """
+    Crea un mapa con buffers alrededor de los puntos de interés.
+
+    Args:
+        csv_path: Ruta al archivo CSV con los datos de ubicación.
+        output: Ruta donde se guardará el mapa HTML.
+        radii_m: Tupla con los radios de los buffers en metros.
+    """
     df = pd.read_csv(csv_path)
     lat_c = df["lat"].mean()
     lon_c = df["lon"].mean()
@@ -13,23 +27,31 @@ def plot_buffers(csv_path="data/locations.csv", output="buffers.html",
     # Puntos
     for _, r in df.iterrows():
         folium.CircleMarker(
-            [r.lat, r.lon], radius=4, color=COLORS.get(r.type, "gray"),
-            fill=True, fill_opacity=0.7,
-            popup=f"{r.type.title()} #{r.get('id', '')}"
+            [r.lat, r.lon],
+            radius=4,
+            color=COLORS.get(r.type, "gray"),
+            fill=True,
+            fill_opacity=0.7,
+            popup=f"{r.type.title()} #{r.get('id', '')}",
         ).add_to(m)
 
     # Buffers para candidatos
-    for _, r in df[df["type"]=="candidate"].iterrows():
+    for _, r in df[df["type"] == "candidate"].iterrows():
         for rad in radii_m:
             folium.Circle(
-                [r.lat, r.lon], radius=rad,
-                color="green", fill=False, weight=1, opacity=0.5,
-                popup=f"Candidate #{int(r.id)} - {rad} m"
+                [r.lat, r.lon],
+                radius=rad,
+                color="green",
+                fill=False,
+                weight=1,
+                opacity=0.5,
+                popup=f"Candidate #{int(r.id)} - {rad} m",
             ).add_to(m)
 
     folium.LayerControl().add_to(m)
     m.save(output)
     print(f"✅ Buffers guardados en {output}")
+
 
 if __name__ == "__main__":
     plot_buffers()
