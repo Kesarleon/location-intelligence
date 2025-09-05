@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import folium
 import pandas as pd
 from folium.features import GeoJson
-from h3 import h3
+import h3
 from huff_model import hex_capture
 from utils import COLORS
 
