@@ -1,42 +1,78 @@
 import folium
 import pandas as pd
+from folium.features import GeoJson
+from h3 import h3
+from huff_model import hex_capture
+from utils import COLORS
 
-def create_map(data_path="data/locations.csv", output_path="map.html"):
-    df = pd.read_csv(data_path)
+def h3_polygon(h):
+    boundary = h3.h3_to_geo_boundary(h, geo_json=True)
+    return [[lat, lon] for lat, lon in boundary]
 
-    # Mapa centrado en CDMX
-    m = folium.Map(location=[19.4326, -99.1332], zoom_start=12, tiles="CartoDB positron")
+def hexlayer_from_df(demand_hex, color_by="winner_group"):
+    features = []
+    for _, r in demand_hex.iterrows():
+        poly = {
+            "type": "Feature",
+            "properties": {
+                "h3": r.h3,
+                "demand_value": float(r.demand_value),
+                "winner_group": r.get("winner_group", "")
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [ [[lon, lat] for lat, lon in h3.h3_to_geo_boundary(r.h3, geo_json=True)] ]
+            }
+        }
+        features.append(poly)
+    return {"type": "FeatureCollection", "features": features}
 
-    # Demanda
-    for _, row in df[df["type"]=="demand"].iterrows():
+def plot_overview(csv_path="data/locations.csv", output="overview.html"):
+    df = pd.read_csv(csv_path)
+    center = [df["lat"].mean(), df["lon"].mean()]
+    m = folium.Map(location=center, zoom_start=12, tiles="CartoDB positron")
+
+    for t in ["demand","competitor","candidate"]:
+        sub = df[df["type"]==t]
+        for _, r in sub.iterrows():
+            folium.CircleMarker(
+                [r.lat, r.lon], radius=4 if t=="demand" else 6,
+                color=COLORS.get(t,"gray"), fill=True, fill_opacity=0.7,
+                popup=f"{t.title()} #{int(r.id)} | A={r.get('attractiveness','-')}"
+            ).add_to(m)
+
+    folium.LayerControl().add_to(m)
+    m.save(output)
+    print(f"✅ Overview map → {output}")
+
+def plot_huff_hex(csv_path="data/locations.csv", output="h3_hex_huff.html"):
+    df = pd.read_csv(csv_path)
+    demand = df[df["type"]=="demand"].copy()
+    candidates = df[df["type"]=="candidate"].copy()
+    competitors = df[df["type"]=="competitor"].copy()
+
+    sites_cap, summary, demand_hex = hex_capture(demand, candidates, competitors, alpha=1.0, beta=1.6)
+
+    m = folium.Map(location=[df["lat"].mean(), df["lon"].mean()], zoom_start=12, tiles="CartoDB positron")
+
+    # Capa H3 coloreada por ganador (candidate vs competitor)
+    gj = hexlayer_from_df(demand_hex, color_by="winner_group")
+    def style_fn(feat):
+        group = feat["properties"]["winner_group"]
+        color = "#2ECC71" if group=="candidate" else ("#E74C3C" if group=="competitor" else "#95A5A6")
+        return {"fillColor": color, "color": "#333333", "weight": 0.3, "fillOpacity": 0.45}
+    GeoJson(gj, style_function=style_fn, name="Huff winner").add_to(m)
+
+    # Marcadores de sitios con tamaño ~ captura
+    max_cap = max(sites_cap["capture"].max(), 1.0)
+    for _, r in sites_cap.iterrows():
+        rad = 4 + 16 * (r.capture / max_cap)
+        color = "green" if r.group=="candidate" else "red"
         folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=5,
-            color="blue",
-            fill=True,
-            fill_opacity=0.7,
-            popup=f"Demanda {row['id']}"
+            [r.lat, r.lon], radius=rad, color=color, fill=True, fill_opacity=0.85,
+            popup=f"{r.group.title()} #{int(r.id)} | Capture={r.capture:.1f}"
         ).add_to(m)
 
-    # Competencia
-    for _, row in df[df["type"]=="competitor"].iterrows():
-        folium.Marker(
-            location=[row["lat"], row["lon"]],
-            popup=f"Competidor {row['id']}",
-            icon=folium.Icon(color="red", icon="briefcase")
-        ).add_to(m)
-
-    # Candidatos
-    for _, row in df[df["type"]=="candidate"].iterrows():
-        folium.Marker(
-            location=[row["lat"], row["lon"]],
-            popup=f"Candidato {row['id']} (Att: {row['attractiveness']})",
-            icon=folium.Icon(color="green", icon="star")
-        ).add_to(m)
-
-    # Guardar
-    m.save(output_path)
-    print(f"✅ Mapa generado en {output_path}")
-
-if __name__ == "__main__":
-    create_map()
+    folium.LayerControl().add_to(m)
+    m.save(output)
+    print(f"✅ Huff hex map → {output}")
