@@ -18,7 +18,7 @@ def h3_polygon(h: str) -> List[List[float]]:
     Returns:
         Una lista de listas con las coordenadas de los vértices del hexágono.
     """
-    boundary = h3.h3_to_geo_boundary(h, geo_json=True)
+    boundary = h3.cell_to_boundary(h, geo_json=True)
     return [[lat, lon] for lat, lon in boundary]
 
 
@@ -49,7 +49,7 @@ def hexlayer_from_df(
                 "coordinates": [
                     [
                         [lon, lat]
-                        for lat, lon in h3.h3_to_geo_boundary(r.h3, geo_json=True)
+                        for lat, lon in h3.cell_to_boundary(r.h3, geo_json=True)
                     ]
                 ],
             },

@@ -15,7 +15,7 @@ def latlon_to_h3(lat: float, lon: float, res: int = 8) -> str:
     Returns:
         El ID del hexágono H3.
     """
-    return h3.geo_to_h3(lat, lon, res)
+    return h3.latlng_to_cell(lat, lon, res)
 
 
 def build_hex_agg(df: pd.DataFrame, res: int = 8) -> pd.DataFrame:
@@ -45,8 +45,8 @@ def build_hex_agg(df: pd.DataFrame, res: int = 8) -> pd.DataFrame:
     )
 
     # Centros hex
-    demand["hex_lat"] = demand["h3"].apply(lambda h: h3.h3_to_geo(h)[0])
-    demand["hex_lon"] = demand["h3"].apply(lambda h: h3.h3_to_geo(h)[1])
+    demand["hex_lat"] = demand["h3"].apply(lambda h: h3.cell_to_latlng(h)[0])
+    demand["hex_lon"] = demand["h3"].apply(lambda h: h3.cell_to_latlng(h)[1])
 
     return demand
 
