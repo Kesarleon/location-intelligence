@@ -22,28 +22,22 @@ def h3_polygon(h: str) -> List[List[float]]:
     return [[lat, lon] for lat, lon in boundary]
 
 
-def hexlayer_from_df(
-    demand_hex: pd.DataFrame, color_by: str = "winner_group"
-) -> Dict[str, Any]:
+def hexlayer_from_df(demand_hex: pd.DataFrame) -> Dict[str, Any]:
     """
     Crea una capa GeoJson de hexágonos a partir de un DataFrame.
 
     Args:
         demand_hex: DataFrame con los datos de demanda agregados por hexágono.
-        color_by: Nombre de la columna para colorear los hexágonos.
 
     Returns:
         Un diccionario GeoJson con los hexágonos.
     """
     features = []
     for _, r in demand_hex.iterrows():
+        properties = r.to_dict()
         poly = {
             "type": "Feature",
-            "properties": {
-                "h3": r.h3,
-                "demand_value": float(r.demand_value),
-                "winner_group": r.get("winner_group", ""),
-            },
+            "properties": properties,
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
@@ -113,7 +107,7 @@ def plot_huff_hex(
     )
 
     # Capa H3 coloreada por ganador (candidate vs competitor)
-    gj = hexlayer_from_df(demand_hex, color_by="winner_group")
+    gj = hexlayer_from_df(demand_hex)
 
     def style_fn(feat: Dict[str, Any]) -> Dict[str, Any]:
         group = feat["properties"]["winner_group"]
