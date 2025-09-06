@@ -85,7 +85,7 @@ with tab2:
         )
 
         # Capa de hexágonos coloreada por white space score
-        gj = hexlayer_from_df(white_space_df, color_by="white_space_score")
+        gj = hexlayer_from_df(white_space_df)
 
         def style_fn(feat):
             score = feat["properties"]["white_space_score"]
