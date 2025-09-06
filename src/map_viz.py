@@ -93,28 +93,19 @@ def plot_overview(
 
 
 def plot_huff_hex(
-    df: Optional[pd.DataFrame] = None, csv_path: str = "data/locations.csv"
+    sites_cap: pd.DataFrame, demand_hex: pd.DataFrame, df: pd.DataFrame
 ) -> folium.Map:
     """
     Crea un mapa con los resultados del modelo de Huff visualizados por hexágono.
 
     Args:
-        df: DataFrame con los datos de ubicación. Si es None, se carga desde csv_path.
-        csv_path: Ruta al archivo CSV con los datos de ubicación.
+        sites_cap: DataFrame con la captación por sitio.
+        demand_hex: DataFrame con la demanda por hexágono y el ganador.
+        df: DataFrame con los datos de ubicación originales.
 
     Returns:
         Un objeto folium.Map con el mapa.
     """
-    if df is None:
-        df = pd.read_csv(csv_path)
-    demand = df[df["type"] == "demand"].copy()
-    candidates = df[df["type"] == "candidate"].copy()
-    competitors = df[df["type"] == "competitor"].copy()
-
-    sites_cap, summary, demand_hex = hex_capture(
-        demand, candidates, competitors, alpha=1.0, beta=1.6
-    )
-
     m = folium.Map(
         location=[df["lat"].mean(), df["lon"].mean()],
         zoom_start=12,

@@ -60,3 +60,41 @@ def create_heatmap(df: pd.DataFrame, output: str = "analysis_heatmap.html") -> s
     HeatMap(heat_data, radius=12).add_to(m)
     m.save(output)
     return output
+
+
+def calculate_cannibalization(
+    candidates_df: pd.DataFrame, radius_km: float = 1.0
+) -> pd.DataFrame:
+    """
+    Calcula la canibalización entre tiendas candidatas basada en la superposición de buffers.
+
+    Args:
+        candidates_df: DataFrame con los datos de los candidatos.
+        radius_km: Radio de los buffers en kilómetros.
+
+    Returns:
+        Un DataFrame con el área de canibalización para cada par de tiendas.
+    """
+    gdf = gpd.GeoDataFrame(
+        candidates_df,
+        geometry=gpd.points_from_xy(candidates_df.lon, candidates_df.lat),
+        crs="EPSG:4326",
+    )
+    gdf_proj = gdf.to_crs(epsg=3857)
+    gdf_proj["buffer"] = gdf_proj.geometry.buffer(radius_km * 1000)
+
+    intersections = []
+    for i, poly1 in gdf_proj.iterrows():
+        for j, poly2 in gdf_proj.iterrows():
+            if i >= j:
+                continue
+            if poly1["buffer"].intersects(poly2["buffer"]):
+                intersection_area = poly1["buffer"].intersection(poly2["buffer"]).area / 1e6
+                intersections.append(
+                    {
+                        "candidate1": poly1["id"],
+                        "candidate2": poly2["id"],
+                        "cannibalization_area_km2": intersection_area,
+                    }
+                )
+    return pd.DataFrame(intersections)
