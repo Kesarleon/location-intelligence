@@ -1,107 +1,120 @@
+import sys
+from pathlib import Path
+
+# Add src to path to be able to import local modules
+sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
+
 import streamlit as st
 import pandas as pd
-import folium
-from folium.plugins import HeatMap
 from streamlit_folium import st_folium
-from shapely.geometry import Point
-import geopandas as gpd
 
-st.set_page_config(page_title="Location Intelligence Dashboard", layout="wide")
+from map_viz import plot_overview, plot_huff_hex
+from heatmap import plot_heatmap
+from buffers import plot_buffers
+from huff_model import hex_capture
 
-# =======================
-# 1. Cargar datos
-# =======================
-df = pd.read_csv("../data/locations.csv")
-
-# Convertir a GeoDataFrame
-gdf = gpd.GeoDataFrame(
-    df, geometry=[Point(xy) for xy in zip(df.lon, df.lat)], crs="EPSG:4326"
+# --------------------------
+# Configuración inicial
+# --------------------------
+st.set_page_config(
+    page_title="🌍 Location Intelligence Dashboard",
+    page_icon="🗺️",
+    layout="wide",
 )
-
-# =======================
-# Sidebar
-# =======================
-st.sidebar.header("⚙️ Configuración")
-view_option = st.sidebar.radio(
-    "Visualización:", ["Mapa de Puntos", "Heatmap", "Áreas de Influencia"]
-)
-radius_km = st.sidebar.slider("Radio de influencia (km)", 0.5, 5.0, 1.0, step=0.5)
 
 st.title("🌍 Location Intelligence Dashboard")
-st.markdown("Analiza clientes y competencia en un mapa interactivo.")
+st.markdown(
+    "Análisis de clientes, competencia y áreas de influencia para toma de decisiones."
+)
 
-# =======================
-# 2. Crear mapa
-# =======================
-m = folium.Map(location=[19.4326, -99.1332], zoom_start=12, tiles="CartoDB positron")
 
-if view_option == "Mapa de Puntos":
-    for _, row in df[df["type"] == "demand"].iterrows():
-        folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=5,
-            color="blue",
-            fill=True,
-            popup=f"Cliente {row['id']}",
-        ).add_to(m)
+# --------------------------
+# Cargar datos
+# --------------------------
+@st.cache_data
+def load_data(path: str = "data/locations.csv") -> pd.DataFrame:
+    return pd.read_csv(path)
 
-    for _, row in df[df["type"] == "competitor"].iterrows():
-        folium.Marker(
-            location=[row["lat"], row["lon"]],
-            icon=folium.Icon(color="red", icon="briefcase"),
-            popup=f"Competidor {row['id']}",
-        ).add_to(m)
 
-elif view_option == "Heatmap":
-    HeatMap(
-        df[df["type"] == "demand"][["lat", "lon"]].values.tolist(), radius=12
-    ).add_to(m)
+df = load_data()
 
-elif view_option == "Áreas de Influencia":
-    # Buffers en metros
-    gdf_utm = gdf.to_crs(epsg=3857)  # reproyectar a métrico
-    gdf_utm["buffer"] = gdf_utm.buffer(radius_km * 1000)
-    gdf_buffers = gdf_utm.to_crs(epsg=4326)
+# --------------------------
+# Sidebar
+# --------------------------
+st.sidebar.header("⚙️ Configuración de Visualización")
+view_option = st.sidebar.selectbox(
+    "Selecciona una visualización:",
+    ["Vista General", "Heatmap de Demanda", "Buffers de Candidatos", "Modelo de Huff"],
+)
 
-    for _, row in gdf_buffers[gdf_buffers["type"] == "demand"].iterrows():
-        folium.GeoJson(
-            row["buffer"],
-            style_function=lambda x: {
-                "color": "blue",
-                "fillColor": "blue",
-                "fillOpacity": 0.2,
-            },
-        ).add_to(m)
+# --------------------------
+# Crear y renderizar mapa
+# --------------------------
+st.header(f"Visualización: {view_option}")
 
-    for _, row in gdf_buffers[gdf_buffers["type"] == "competitor"].iterrows():
-        folium.GeoJson(
-            row["buffer"],
-            style_function=lambda x: {
-                "color": "red",
-                "fillColor": "red",
-                "fillOpacity": 0.2,
-            },
-        ).add_to(m)
+if view_option == "Vista General":
+    st.markdown("Mapa con todos los puntos de interés: demanda, competidores y candidatos.")
+    m = plot_overview(df=df)
+    st_folium(m, width=1200, height=700)
 
-# =======================
-# 3. Renderizar mapa
-# =======================
-st_data = st_folium(m, width=1200, height=700)
-
-# =======================
-# 4. Insights dinámicos
-# =======================
-st.subheader("📊 Insights")
-clients = df[df["type"] == "demand"].shape[0]
-competitors = df[df["type"] == "competitor"].shape[0]
-
-st.markdown(f"- Número de puntos de demanda simulados: **{clients}**")
-st.markdown(f"- Número de competidores simulados: **{competitors}**")
-
-if view_option == "Áreas de Influencia":
-    overlap = gpd.overlay(
-        gdf_buffers[gdf_buffers["type"] == "demand"],
-        gdf_buffers[gdf_buffers["type"] == "competitor"],
-        how="intersection",
+elif view_option == "Heatmap de Demanda":
+    st.markdown(
+        "Mapa de calor que muestra la concentración de la demanda ponderada por su valor."
     )
-    st.markdown(f"- Zonas de competencia directa detectadas: **{len(overlap)}**")
+    m = plot_heatmap(df=df)
+    st_folium(m, width=1200, height=700)
+
+elif view_option == "Buffers de Candidatos":
+    st.markdown(
+        "Áreas de influencia (buffers) alrededor de las ubicaciones candidatas."
+    )
+    radii_m = st.sidebar.multiselect(
+        "Radios de los buffers (m):",
+        [300, 500, 800, 1000, 1500],
+        default=[300, 500, 800],
+    )
+    m = plot_buffers(df=df, radii_m=tuple(radii_m))
+    st_folium(m, width=1200, height=700)
+
+elif view_option == "Modelo de Huff":
+    st.markdown(
+        "Resultados del modelo de Huff, mostrando la captación de mercado por hexágono."
+    )
+    alpha = st.sidebar.slider("Parámetro de atractividad (alpha)", 0.1, 3.0, 1.0, 0.1)
+    beta = st.sidebar.slider("Parámetro de distancia (beta)", 0.1, 3.0, 1.6, 0.1)
+
+    demand = df[df["type"] == "demand"].copy()
+    candidates = df[df["type"] == "candidate"].copy()
+    competitors = df[df["type"] == "competitor"].copy()
+
+    sites_cap, summary, demand_hex = hex_capture(
+        demand, candidates, competitors, alpha=alpha, beta=beta
+    )
+
+    m = plot_huff_hex(df=df)
+    st_folium(m, width=1200, height=700)
+
+    st.subheader("Resultados del Modelo de Huff")
+    st.write("Captación de mercado por grupo:")
+    st.dataframe(summary)
+
+    st.write("Top 5 candidatos con mayor captación:")
+    st.dataframe(
+        sites_cap[sites_cap["group"] == "candidate"]
+        .sort_values("capture", ascending=False)
+        .head(5)
+    )
+
+# --------------------------
+# Insights
+# --------------------------
+st.sidebar.header("📊 Resumen de Datos")
+st.sidebar.markdown(
+    f"- **{df[df['type'] == 'demand'].shape[0]}** puntos de demanda"
+)
+st.sidebar.markdown(
+    f"- **{df[df['type'] == 'competitor'].shape[0]}** competidores"
+)
+st.sidebar.markdown(
+    f"- **{df[df['type'] == 'candidate'].shape[0]}** candidatos"
+)

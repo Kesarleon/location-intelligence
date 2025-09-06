@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import folium
 import numpy as np
@@ -20,15 +20,21 @@ def kde_weighted_points(df: pd.DataFrame, weight_col: str = "value") -> List[Lis
     return df[["lat", "lon", weight_col]].values.tolist()
 
 
-def plot_heatmap(csv_path: str = "data/locations.csv", output: str = "heatmap.html") -> None:
+def plot_heatmap(
+    df: Optional[pd.DataFrame] = None, csv_path: str = "data/locations.csv"
+) -> folium.Map:
     """
     Crea un mapa de calor (heatmap) ponderado por valor de consumo.
 
     Args:
+        df: DataFrame con los datos de ubicación. Si es None, se carga desde csv_path.
         csv_path: Ruta al archivo CSV con los datos de ubicación.
-        output: Ruta donde se guardará el mapa HTML.
+
+    Returns:
+        Un objeto folium.Map con el mapa.
     """
-    df = pd.read_csv(csv_path)
+    if df is None:
+        df = pd.read_csv(csv_path)
     demand = df[df["type"] == "demand"].copy()
     center = [demand["lat"].mean(), demand["lon"].mean()]
     m = folium.Map(location=center, zoom_start=12, tiles="CartoDB dark_matter")
@@ -47,9 +53,10 @@ def plot_heatmap(csv_path: str = "data/locations.csv", output: str = "heatmap.ht
             popup=f"{r.type.title()} #{int(r.id)} | A={r.get('attractiveness', '-')}",
         ).add_to(m)
 
-    m.save(output)
-    print(f"✅ Heatmap guardado en {output}")
+    return m
 
 
 if __name__ == "__main__":
-    plot_heatmap()
+    m = plot_heatmap()
+    m.save("heatmap.html")
+    print("✅ Heatmap guardado en heatmap.html")

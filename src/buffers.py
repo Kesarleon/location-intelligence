@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import folium
 import pandas as pd
@@ -6,19 +6,23 @@ from utils import COLORS
 
 
 def plot_buffers(
+    df: Optional[pd.DataFrame] = None,
     csv_path: str = "data/locations.csv",
-    output: str = "buffers.html",
     radii_m: Tuple[int, int, int] = (300, 500, 800),
-) -> None:
+) -> folium.Map:
     """
     Crea un mapa con buffers alrededor de los puntos de interés.
 
     Args:
+        df: DataFrame con los datos de ubicación. Si es None, se carga desde csv_path.
         csv_path: Ruta al archivo CSV con los datos de ubicación.
-        output: Ruta donde se guardará el mapa HTML.
         radii_m: Tupla con los radios de los buffers en metros.
+
+    Returns:
+        Un objeto folium.Map con el mapa.
     """
-    df = pd.read_csv(csv_path)
+    if df is None:
+        df = pd.read_csv(csv_path)
     lat_c = df["lat"].mean()
     lon_c = df["lon"].mean()
 
@@ -49,9 +53,10 @@ def plot_buffers(
             ).add_to(m)
 
     folium.LayerControl().add_to(m)
-    m.save(output)
-    print(f"✅ Buffers guardados en {output}")
+    return m
 
 
 if __name__ == "__main__":
-    plot_buffers()
+    m = plot_buffers()
+    m.save("buffers.html")
+    print("✅ Buffers guardados en buffers.html")

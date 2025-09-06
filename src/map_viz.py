@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import folium
 import pandas as pd
@@ -59,16 +59,20 @@ def hexlayer_from_df(
 
 
 def plot_overview(
-    csv_path: str = "data/locations.csv", output: str = "overview.html"
-) -> None:
+    df: Optional[pd.DataFrame] = None, csv_path: str = "data/locations.csv"
+) -> folium.Map:
     """
     Crea un mapa con una vista general de todos los puntos de interés.
 
     Args:
+        df: DataFrame con los datos de ubicación. Si es None, se carga desde csv_path.
         csv_path: Ruta al archivo CSV con los datos de ubicación.
-        output: Ruta donde se guardará el mapa HTML.
+
+    Returns:
+        Un objeto folium.Map con el mapa.
     """
-    df = pd.read_csv(csv_path)
+    if df is None:
+        df = pd.read_csv(csv_path)
     center = [df["lat"].mean(), df["lon"].mean()]
     m = folium.Map(location=center, zoom_start=12, tiles="CartoDB positron")
 
@@ -85,21 +89,24 @@ def plot_overview(
             ).add_to(m)
 
     folium.LayerControl().add_to(m)
-    m.save(output)
-    print(f"✅ Overview map → {output}")
+    return m
 
 
 def plot_huff_hex(
-    csv_path: str = "data/locations.csv", output: str = "h3_hex_huff.html"
-) -> None:
+    df: Optional[pd.DataFrame] = None, csv_path: str = "data/locations.csv"
+) -> folium.Map:
     """
     Crea un mapa con los resultados del modelo de Huff visualizados por hexágono.
 
     Args:
+        df: DataFrame con los datos de ubicación. Si es None, se carga desde csv_path.
         csv_path: Ruta al archivo CSV con los datos de ubicación.
-        output: Ruta donde se guardará el mapa HTML.
+
+    Returns:
+        Un objeto folium.Map con el mapa.
     """
-    df = pd.read_csv(csv_path)
+    if df is None:
+        df = pd.read_csv(csv_path)
     demand = df[df["type"] == "demand"].copy()
     candidates = df[df["type"] == "candidate"].copy()
     competitors = df[df["type"] == "competitor"].copy()
@@ -148,5 +155,4 @@ def plot_huff_hex(
         ).add_to(m)
 
     folium.LayerControl().add_to(m)
-    m.save(output)
-    print(f"✅ Huff hex map → {output}")
+    return m
